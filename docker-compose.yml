@@ -1,0 +1,100 @@
+version: "3.9"
+
+networks:
+  cassandra-net:
+    driver: bridge
+
+services:
+  # ──────────────────────────────────────────────
+  # Cassandra Node 1 (seed)
+  # ──────────────────────────────────────────────
+  cassandra-node1:
+    image: cassandra:4.1
+    container_name: cassandra-node1
+    hostname: cassandra-node1
+    networks:
+      - cassandra-net
+    ports:
+      - "9042:9042"   # CQL native transport
+    environment:
+      CASSANDRA_CLUSTER_NAME:      "ReviewCluster"
+      CASSANDRA_DC:                "dc1"
+      CASSANDRA_RACK:              "rack1"
+      CASSANDRA_ENDPOINT_SNITCH:   GossipingPropertyFileSnitch
+      CASSANDRA_NUM_TOKENS:        "256"
+      HEAP_NEWSIZE:                "128M"
+      MAX_HEAP_SIZE:               "512M"
+    volumes:
+      - cassandra-data1:/var/lib/cassandra
+      - ./scripts:/docker-entrypoint-initdb.d   # not auto-run, used manually
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -E '^UN'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # ──────────────────────────────────────────────
+  # Cassandra Node 2
+  # ──────────────────────────────────────────────
+  cassandra-node2:
+    image: cassandra:4.1
+    container_name: cassandra-node2
+    hostname: cassandra-node2
+    networks:
+      - cassandra-net
+    environment:
+      CASSANDRA_CLUSTER_NAME:      "ReviewCluster"
+      CASSANDRA_DC:                "dc1"
+      CASSANDRA_RACK:              "rack1"
+      CASSANDRA_SEEDS:             "cassandra-node1"
+      CASSANDRA_ENDPOINT_SNITCH:   GossipingPropertyFileSnitch
+      CASSANDRA_NUM_TOKENS:        "256"
+      HEAP_NEWSIZE:                "128M"
+      MAX_HEAP_SIZE:               "512M"
+    volumes:
+      - cassandra-data2:/var/lib/cassandra
+    depends_on:
+      cassandra-node1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -E '^UN'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ──────────────────────────────────────────────
+  # Cassandra Node 3
+  # ──────────────────────────────────────────────
+  cassandra-node3:
+    image: cassandra:4.1
+    container_name: cassandra-node3
+    hostname: cassandra-node3
+    networks:
+      - cassandra-net
+    environment:
+      CASSANDRA_CLUSTER_NAME:      "ReviewCluster"
+      CASSANDRA_DC:                "dc1"
+      CASSANDRA_RACK:              "rack1"
+      CASSANDRA_SEEDS:             "cassandra-node1"
+      CASSANDRA_ENDPOINT_SNITCH:   GossipingPropertyFileSnitch
+      CASSANDRA_NUM_TOKENS:        "256"
+      HEAP_NEWSIZE:                "128M"
+      MAX_HEAP_SIZE:               "512M"
+    volumes:
+      - cassandra-data3:/var/lib/cassandra
+    depends_on:
+      cassandra-node2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nodetool status | grep -E '^UN'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+volumes:
+  cassandra-data1:
+  cassandra-data2:
+  cassandra-data3:
